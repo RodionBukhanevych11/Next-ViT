@@ -1,0 +1,4 @@
+train: /home/rodion/crops/dataset_ppe/test/crops/val
+val: /home/rodion/crops/dataset_ppe/test/crops/val
+
+labels: ['in_vest','not_in_vest','vest_unrecognized']

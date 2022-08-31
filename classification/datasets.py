@@ -1,12 +1,13 @@
 import os
 import json
+import yaml
 
 from torchvision import datasets, transforms
 from torchvision.datasets.folder import ImageFolder, default_loader
-
+import cv2
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import create_transform
-
+from torch.utils.data import Dataset, DataLoader
 
 
 class INatDataset(ImageFolder):
@@ -49,40 +50,45 @@ class INatDataset(ImageFolder):
             target_current_true = targeter[categors[category]]
             self.samples.append((path_current, target_current_true))
 
-    # __getitem__ and __len__ inherited from ImageFolder
+
+class CustomDataset(Dataset):
+    def __init__(self, labels, images_path, transform=None):
+        self.root = images_path
+        self.images_path = os.listdir(images_path)
+        self.transform = transform
+        self.labels = labels
+
+    def __len__(self):
+        return len(self.images_path)
+    
+    def _parse_label(self, path):
+        for i,label in enumerate(self.labels):
+            if '-'+label in path:
+                return i
+
+    def __getitem__(self, idx):
+        image_path = os.path.join(self.root, self.images_path[idx])
+        label = self._parse_label(image_path)
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = self.transform(image)
+        return image, label
 
 
 def build_dataset(is_train, args):
     transform = build_transform(is_train, args)
-
-    if args.data_set == 'CIFAR':
-        dataset = datasets.CIFAR100(args.data_path, train=is_train, transform=transform)
-        nb_classes = 100
-    elif args.data_set == 'IMNET':
-        if not args.use_mcloader:
-            root = os.path.join(args.data_path, 'train' if is_train else 'val')
-            dataset = datasets.ImageFolder(root, transform=transform)
-        else:
-            from mcloader import ClassificationDataset
-            dataset = ClassificationDataset(
-                'train' if is_train else 'val',
-                pipeline=transform
-            )
-        nb_classes = 1000
-    elif args.data_set == 'INAT':
-        dataset = INatDataset(args.data_path, train=is_train, year=2018,
-                              category=args.inat_category, transform=transform)
-        nb_classes = dataset.nb_classes
-    elif args.data_set == 'INAT19':
-        dataset = INatDataset(args.data_path, train=is_train, year=2019,
-                              category=args.inat_category, transform=transform)
-        nb_classes = dataset.nb_classes
-
-    return dataset, nb_classes
+    with open(args.data) as f:
+        config = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
+    if is_train:
+        dataset = CustomDataset(config['labels'], config['train'], transform)
+    else:
+        dataset = CustomDataset(config['labels'], config['val'], transform)
+    return dataset, config['labels']
 
 
 def build_transform(is_train, args):
     resize_im = args.input_size > 32
+    '''
     if is_train:
         # this should always dispatch to transforms_imagenet_train
         transform = create_transform(
@@ -101,10 +107,11 @@ def build_transform(is_train, args):
             transform.transforms[0] = transforms.RandomCrop(
                 args.input_size, padding=4)
         return transform
-
+    '''
     t = []
     if resize_im:
         size = int((256 / 224) * args.input_size)
+        t.append(transforms.ToPILImage())
         t.append(
             transforms.Resize(size, interpolation=3),  # to maintain same ratio w.r.t. 224 images
         )

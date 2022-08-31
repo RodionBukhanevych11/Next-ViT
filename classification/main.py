@@ -5,7 +5,7 @@ import time
 import torch
 import torch.backends.cudnn as cudnn
 import json
-
+import neptune.new as neptune
 from pathlib import Path
 from timm.data import Mixup
 from timm.models import create_model
@@ -18,19 +18,20 @@ from engine import train_one_epoch, evaluate
 from losses import DistillationLoss
 from samplers import RASampler
 import utils
+import numpy as np
 import nextvit
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Next-ViT training and evaluation script', add_help=False)
     parser.add_argument('--batch-size', default=64, type=int)
-    parser.add_argument('--epochs', default=300, type=int)
-
+    parser.add_argument('--epochs', default=30, type=int)
+    parser.add_argument('--data', default='configs/data.yaml', type=str)
     # Model parameters
-    parser.add_argument('--model', default='pvt_small', type=str, metavar='MODEL',
+    parser.add_argument('--model', default='nextvit_base', type=str, metavar='MODEL',
                         help='Name of model to train')
-    parser.add_argument('--input-size', default=224, type=int, help='images input size')
+    parser.add_argument('--input-size', default=80, type=int, help='images input size')
 
-    parser.add_argument('--drop', type=float, default=0.0, metavar='PCT',
+    parser.add_argument('--drop', type=float, default=0.1, metavar='PCT',
                         help='Dropout rate (default: 0.)')
     parser.add_argument('--drop-path', type=float, default=0.1, metavar='PCT',
                         help='Drop path rate (default: 0.1)')
@@ -60,7 +61,7 @@ def get_args_parser():
                         help='learning rate noise limit percent (default: 0.67)')
     parser.add_argument('--lr-noise-std', type=float, default=1.0, metavar='STDDEV',
                         help='learning rate noise std-dev (default: 1.0)')
-    parser.add_argument('--warmup-lr', type=float, default=1e-6, metavar='LR',
+    parser.add_argument('--warmup-lr', type=float, default=1e-4, metavar='LR',
                         help='warmup learning rate (default: 1e-6)')
     parser.add_argument('--min-lr', type=float, default=1e-5, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0 (1e-5)')
@@ -77,7 +78,7 @@ def get_args_parser():
                         help='LR decay rate (default: 0.1)')
 
     # Augmentation parameters
-    parser.add_argument('--color-jitter', type=float, default=0.4, metavar='PCT',
+    parser.add_argument('--color-jitter', type=float, default=0.1, metavar='PCT',
                         help='Color jitter factor (default: 0.4)')
     parser.add_argument('--aa', type=str, default='rand-m9-mstd0.5-inc1', metavar='NAME',
                         help='Use AutoAugment policy. "v0" or "original". " + \
@@ -175,7 +176,6 @@ def throughput(data_loader, model, logger):
 
 def main(args):
     utils.init_distributed_mode(args)
-    print(args)
 
     device = torch.device(args.device)
 
@@ -185,7 +185,8 @@ def main(args):
     np.random.seed(seed)
     cudnn.benchmark = True
 
-    dataset_train, args.nb_classes = build_dataset(is_train=True, args=args)
+    dataset_train, label_names = build_dataset(is_train=True, args=args)
+    args.nb_classes = len(label_names)
     dataset_val, _ = build_dataset(is_train=False, args=args)
 
     if args.distributed:
@@ -210,19 +211,19 @@ def main(args):
             sampler_val = torch.utils.data.SequentialSampler(dataset_val)
     else:
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
-        sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+        sampler_val = torch.utils.data.RandomSampler(dataset_val)
 
     data_loader_train = torch.utils.data.DataLoader(
-        dataset_train, sampler=sampler_train,
+        dataset_train,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
-        drop_last=True,
+        drop_last=False,
     )
 
     data_loader_val = torch.utils.data.DataLoader(
-        dataset_val, sampler=sampler_val,
-        batch_size=250,
+        dataset_val,
+        batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=False
@@ -236,14 +237,12 @@ def main(args):
             prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
 
-    print(f"Creating model: {args.model}")
     model = create_model(
         args.model,
         num_classes=args.nb_classes,
     )
 
     if not args.distributed or args.rank == 0:
-        print(model)
         input_tensor = torch.zeros((1, 3, 224, 224), dtype=torch.float32)
         model.eval()
         utils.cal_flops_params_with_fvcore(model, input_tensor)
@@ -280,7 +279,12 @@ def main(args):
     criterion = DistillationLoss(
         criterion, None, 'none', 0, 0
     )
-
+    
+    neptune_run = neptune.init(
+    project="colabuserovych2/vit",
+    api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmMWVmOTM0My04NzAwLTQzMWYtOWMyOC00MmViYTMwNGQ1YmYifQ==",
+)  # your credentials
+    
     if not args.output_dir:
         args.output_dir = args.model
         if utils.is_main_process():
@@ -312,8 +316,8 @@ def main(args):
         if hasattr(model.module, "merge_bn"):
             print("Merge pre bn to speedup inference.")
             model.module.merge_bn()
-        test_stats = evaluate(data_loader_val, model, device)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+        f1_per_class = evaluate(data_loader_val, model, device, args.nb_classes)
+        print(f"F1 of the network on the {len(dataset_val)} test images: {f1_per_class}")
         return
 
     if args.throughout:
@@ -335,7 +339,9 @@ def main(args):
             args.clip_grad, model_ema, mixup_fn,
             set_training_mode=True,
         )
-
+        neptune_run['train_loss'].log(train_stats['train_loss'])
+        neptune_run['lr'].log(train_stats['lr'])
+        
         lr_scheduler.step(epoch)
         if args.output_dir:
             checkpoint_paths = [output_dir / 'checkpoint.pth']
@@ -349,9 +355,9 @@ def main(args):
                     'args': args,
                 }, checkpoint_path)
 
-        test_stats = evaluate(data_loader_val, model, device)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
-        if test_stats["acc1"] > max_accuracy:
+        f1, val_loss = evaluate(data_loader_val, model, device, args.nb_classes)
+        print(f"F1 of the network on the {len(dataset_val)} test images: {f1}")
+        if np.nanmean(f1) > max_accuracy:
             if args.output_dir:
                 checkpoint_paths = [output_dir / 'checkpoint_best.pth']
                 for checkpoint_path in checkpoint_paths:
@@ -362,16 +368,12 @@ def main(args):
                         'epoch': epoch,
                         'args': args,
                     }, checkpoint_path)
-        max_accuracy = max(max_accuracy, test_stats["acc1"])
-        print(f'Max accuracy: {max_accuracy:.2f}%')
-
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     **{f'test_{k}': v for k, v in test_stats.items()},
-                     'epoch': epoch}
-
-        if args.output_dir and utils.is_main_process():
-            with (output_dir / "log.txt").open("a") as f:
-                f.write(json.dumps(log_stats) + "\n")
+        max_accuracy = max(max_accuracy, np.nanmean(f1))
+        print(f'Max accuracy: {max_accuracy*100:.2f}%')
+        neptune_run['val_loss'].log(val_loss)
+        for i, label in enumerate(label_names):
+            neptune_run[label].log(f1[i])
+            
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

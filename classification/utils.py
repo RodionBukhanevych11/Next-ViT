@@ -99,10 +99,6 @@ class MetricLogger(object):
 
     def __str__(self):
         loss_str = []
-        for name, meter in self.meters.items():
-            loss_str.append(
-                "{}: {}".format(name, str(meter))
-            )
         return self.delimiter.join(loss_str)
 
     def synchronize_between_processes(self):
@@ -155,8 +151,6 @@ class MetricLogger(object):
             end = time.time()
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        print('{} Total time: {} ({:.4f} s / it)'.format(
-            header, total_time_str, total_time / len(iterable)))
 
 
 def _load_checkpoint_for_ema(model_ema, checkpoint):

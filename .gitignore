@@ -1,0 +1,6 @@
+*.ipynb_checkpoints
+*.neptune
+*/nextvit_base
+*.ipynb
+logs
+*.jog
