@@ -1,0 +1,25 @@
+train: /home/rodion/crops/dataset_ppe/test/crops/val
+val: /home/rodion/crops/dataset_ppe/test/crops/val
+
+height: 185
+width: 80
+
+labels:
+    harness:
+        - in_harness
+        - not_in_harness
+        - harness_unrecognized
+    vest:
+        - in_vest
+        - not_in_vest
+        - vest_unrecognized
+    hardhat:
+        - in_hardhat
+        - not_in_hardhat
+        - hardhat_unrecognized
+    person_in_bucket:
+        - person_in_bucket
+        - person_not_in_bucket
+
+nc: 11
+
