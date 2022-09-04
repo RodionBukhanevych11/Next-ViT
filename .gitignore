@@ -4,3 +4,4 @@
 *.ipynb
 logs
 *.jog
+__pycache__/
