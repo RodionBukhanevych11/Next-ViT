@@ -26,7 +26,6 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     for samples, targets in tqdm(data_loader):
         samples = samples.to(device, non_blocking=True)
-        print(samples.shape)
         targets = targets.to(device, non_blocking=True)
         with torch.cuda.amp.autocast():
             outputs = model(samples)
@@ -110,7 +109,7 @@ def evaluate(data_loader, model, device, config):
 
     del metrics_per_class, metrics_dict
         
-    return f1_per_class, np.mean(val_loss)
+    return np.array(f1_per_class), np.mean(val_loss)
 
 
 def decode_labels(labels):

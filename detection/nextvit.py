@@ -13,7 +13,6 @@ from utils import merge_pre_bn
 
 NORM_EPS = 1e-5
 
-
 class ConvBNReLU(nn.Module):
     def __init__(
             self,

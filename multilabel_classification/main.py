@@ -366,7 +366,10 @@ def main(args):
         for l_i,label_name in enumerate(label_names):
             neptune_run[label_name].log(f1[l_i])
         print(f"F1 of the network on the {len(dataset_val)} test images: {f1}")
-        if np.mean(f1) > max_accuracy:
+        labels_to_get_averaged_metrics = config['labels_to_get_averaged_metrics']
+        f1_mean = f1[labels_to_get_averaged_metrics].mean()
+        if f1_mean >= max_accuracy:
+            max_accuracy = f1_mean
             if args.output_dir:
                 checkpoint_paths = [output_dir / 'checkpoint_best.pth']
                 for checkpoint_path in checkpoint_paths:
@@ -377,7 +380,6 @@ def main(args):
                         'epoch': epoch,
                         'args': args,
                     }, checkpoint_path)
-        max_accuracy = max(max_accuracy, np.mean(f1))
         print(f'Max accuracy: {max_accuracy*100:.2f}%')
         neptune_run['val_loss'].log(val_loss)
             
