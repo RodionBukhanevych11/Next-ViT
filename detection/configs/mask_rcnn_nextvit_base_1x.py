@@ -38,7 +38,7 @@ model = dict(
             in_channels=256,
             fc_out_channels=1024,
             roi_feat_size=7,
-            num_classes=80,
+            num_classes=3,
             bbox_coder=dict(
                 type='DeltaXYWHBBoxCoder',
                 target_means=[0.0, 0.0, 0.0, 0.0],
@@ -57,9 +57,10 @@ model = dict(
             num_convs=4,
             in_channels=256,
             conv_out_channels=256,
-            num_classes=80,
+            num_classes=3,
             loss_mask=dict(
-                type='CrossEntropyLoss', use_mask=True, loss_weight=1.0))))
+                type='CrossEntropyLoss', use_mask=False, loss_weight=1.0))))
+
 train_cfg = dict(
     rpn=dict(
         assigner=dict(
@@ -112,14 +113,15 @@ test_cfg = dict(
         max_per_img=100,
         mask_thr_binary=0.5))
 dataset_type = 'CocoDataset'
-data_root = './data/COCO2017/'
+data_root = '/media/data2/vv/dvc_datasets/dataset_ppe/for_experiments/seah_hardhat_coco/'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
-    dict(type='Resize', img_scale=(1333, 800), keep_ratio=True),
+    dict(type='Resize', img_scale=(1280, 736), keep_ratio=True),
     dict(type='RandomFlip', flip_ratio=0.5),
+    dict
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
@@ -129,7 +131,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(1333, 800),
+        img_scale=(1280, 736),
         flip=False,
         transforms=[
             dict(type='Resize', keep_ratio=True),
@@ -145,22 +147,22 @@ test_pipeline = [
         ])
 ]
 data = dict(
-    samples_per_gpu=2,
-    workers_per_gpu=6,
+    samples_per_gpu=30,
+    workers_per_gpu=4,
     train=dict(
         type='CocoDataset',
-        ann_file=data_root+'annotations/instances_train2017.json',
-        img_prefix=data_root+'train2017/',
+        ann_file=data_root+'ann/hardhat/train.json',
+        img_prefix=data_root+'images/',
         pipeline=train_pipeline),
     val=dict(
         type='CocoDataset',
-        ann_file=data_root+'annotations/instances_val2017.json',
-        img_prefix=data_root+'val2017/',
+        ann_file=data_root+'ann/hardhat/val.json',
+        img_prefix=data_root+'images/',
         pipeline=[
             dict(type='LoadImageFromFile'),
             dict(
                 type='MultiScaleFlipAug',
-                img_scale=(1333, 800),
+                img_scale=(1280, 736),
                 flip=False,
                 transforms=[
                     dict(type='Resize', keep_ratio=True),
@@ -177,17 +179,16 @@ data = dict(
         ]),
     test=dict(
         type='CocoDataset',
-        ann_file=data_root+'annotations/instances_val2017.json',
-        img_prefix=data_root+'val2017/',
+        ann_file=data_root+'ann/hardhat/test.json',
+        img_prefix=data_root+'images/',
         pipeline=[
             dict(type='LoadImageFromFile'),
             dict(
                 type='MultiScaleFlipAug',
-                img_scale=(1333, 800),
+                img_scale=(1280, 736),
                 flip=False,
                 transforms=[
                     dict(type='Resize', keep_ratio=True),
-                    dict(type='RandomFlip'),
                     dict(
                         type='Normalize',
                         mean=[123.675, 116.28, 103.53],
@@ -198,9 +199,9 @@ data = dict(
                     dict(type='Collect', keys=['img'])
                 ])
         ]))
-evaluation = dict(metric=['bbox', 'segm'])
+evaluation = dict(metric=['bbox'])
 checkpoint_config = dict(interval=1)
-log_config = dict(interval=50, hooks=[dict(type='TextLoggerHook')])
+log_config = dict(interval=2, hooks=[dict(type='TextLoggerHook')])
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 load_from = None
@@ -224,10 +225,10 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=1e-6,
-    step=[8, 11])
-total_epochs = 12
-runner = dict(type='EpochBasedRunner', max_epochs=12)
+    step=[10, 20, 30])
+total_epochs = 50
+runner = dict(type='EpochBasedRunner', max_epochs=50)
 
 fp16 = dict(loss_scale=512.0)
-gpu_ids = range(0, 8)
+gpu_ids = range(1)
 
