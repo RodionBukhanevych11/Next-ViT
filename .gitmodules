@@ -1,0 +1,3 @@
+[submodule "retinanet-examples"]
+	path = retinanet-examples
+	url = https://github.com/NVIDIA/retinanet-examples.git
