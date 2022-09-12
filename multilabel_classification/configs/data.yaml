@@ -1,6 +1,6 @@
-train_csv: /home/rodion/crops/dataset_ppe/test/ann/val.csv
-val_csv: /home/rodion/crops/dataset_ppe/test/ann/val.csv
-images: /home/rodion/crops/dataset_ppe/test/crops/
+train_csv: /media/data2/vv/dvc_datasets/dataset_ppe/ppe_multilabel_crops_a34ad4f6bed4dde55efde4acbea618cf1526eb24/ann/train.csv
+val_csv: /media/data2/vv/dvc_datasets/dataset_ppe/ppe_multilabel_crops_a34ad4f6bed4dde55efde4acbea618cf1526eb24/ann/val.csv
+images: /media/data2/vv/dvc_datasets/dataset_ppe/ppe_multilabel_crops_a34ad4f6bed4dde55efde4acbea618cf1526eb24/crops/
 
 height: 185
 width: 80

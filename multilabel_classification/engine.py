@@ -29,11 +29,14 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
         targets = targets.to(device, non_blocking=True)
         with torch.cuda.amp.autocast():
             outputs = model(samples)
+            #outputs = torch.nan_to_num(outputs,nan=0, posinf=1.0)
             loss = criterion(samples, outputs, targets)
         loss_value = loss.item()
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
-            sys.exit(1)
+            print(targets)
+            print(outputs)
+            sys.exit()
 
         optimizer.zero_grad()
 

@@ -5,7 +5,6 @@ import torch
 import torch.utils.checkpoint as checkpoint
 from einops import rearrange
 from mmdet.models.builder import BACKBONES
-from mmdet.utils import get_root_logger
 from timm.models.layers import DropPath, trunc_normal_
 from torch import nn
 from torch.nn.modules.batchnorm import _BatchNorm
@@ -277,7 +276,7 @@ class NTB(nn.Module):
 
 
 class NextViT(nn.Module):
-    def __init__(self, stem_chs, depths, path_dropout, attn_drop=0, drop=0, num_classes=1000,
+    def __init__(self, stem_chs, depths, path_dropout, attn_drop=0, drop=0, num_classes=3,
                  strides=[1, 2, 2, 2], sr_ratios=[8, 4, 2, 1], head_dim=32, mix_block_ratio=0.75,
                  use_checkpoint=False, resume='', with_extra_norm=True, frozen_stages=-1,
                  norm_eval=False, norm_cfg=None,):
@@ -339,12 +338,14 @@ class NextViT(nn.Module):
                     self.stage_out_channels[stage_id][-1], eps=NORM_EPS))
             self.extra_norm_list = nn.Sequential(*self.extra_norm_list)
 
-        # self.norm = nn.BatchNorm2d(output_channel, eps=NORM_EPS)
+        '''
+        self.norm = nn.BatchNorm2d(output_channel, eps=NORM_EPS)
         #
-        # self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        # self.proj_head = nn.Sequential(
-        #     nn.Linear(output_channel, num_classes),
-        # )
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.proj_head = nn.Sequential(
+            nn.Linear(output_channel, num_classes),
+        )
+        '''
 
         self.stage_out_idx = [sum(depths[:idx + 1]) - 1 for idx in range(len(depths))]
         print('initialize_weights...')
@@ -405,7 +406,8 @@ class NextViT(nn.Module):
                     nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
-        outputs = list()
+        det_outputs = list()
+        class_outputs = list()
         x = self.stem(x)
         stage_id = 0
         for idx, layer in enumerate(self.features):
@@ -436,8 +438,10 @@ class nextvit_small(NextViT):
 class nextvit_base(NextViT):
     def __init__(self, resume='', **kwargs):
         super(nextvit_base, self).__init__(
-            stem_chs=[64, 32, 64], depths=[3, 4, 20, 3], path_dropout=0.2, resume=resume, **kwargs
+            stem_chs=[64, 32, 64], depths=[3, 4, 20, 3], path_dropout=0.2, resume=False, **kwargs
         )
+
+
 
 
 @BACKBONES.register_module()

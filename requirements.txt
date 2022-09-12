@@ -10,6 +10,5 @@ einops==0.4.1
 tqdm==4.59.0
 fvcore==0.1.5.post20220512
 
-mmcv-full==1.5.0
-mmdet==2.23.0
-mmsegmentation==0.23.0
+#mmcv-full==1.5.0
+#mmdet==2.23.0

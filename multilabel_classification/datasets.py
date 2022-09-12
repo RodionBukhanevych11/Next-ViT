@@ -280,7 +280,7 @@ def build_dataset(is_train, args):
             images_path = config['images'], 
             transform = transform, 
             labels = config['labels'],
-            balance_classess=args.balance_classess)
+            balance_classess=True)
     else:
         dataset = MultilabelDataset(
             nc = config['nc'],

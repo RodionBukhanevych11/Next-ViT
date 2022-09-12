@@ -5,7 +5,9 @@ import os
 import os.path as osp
 import time
 import warnings
+import sys
 
+sys.path.append('../mmaction2')
 import mmcv
 import torch
 import torch.distributed as dist
@@ -23,7 +25,7 @@ import nextvit
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
-    parser.add_argument('config', help='train config file path')
+    parser.add_argument('--config', help='train config file path')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument(
         '--resume-from', help='the checkpoint file to resume from')
@@ -50,7 +52,7 @@ def parse_args():
     group_gpus.add_argument(
         '--gpu-id',
         type=int,
-        default=0,
+        default=2,
         help='id of gpu to use '
              '(only applicable to non-distributed training)')
     parser.add_argument('--seed', type=int, default=None, help='random seed')
